@@ -367,8 +367,7 @@ const replicate = new Replicate({
 });
 const transcribeAudio = async (filePath) => {
     try {
-        const audio = await fs.readFile(filePath);
-        const buffer = audio.toString('base64');
+        const buffer = await fs.readFile(filePath, { encoding: 'base64' });
         const input = {
             audio: `data:audio/wav;base64,${buffer}`
         };

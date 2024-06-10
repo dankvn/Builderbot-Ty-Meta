@@ -53,8 +53,7 @@ const replicate = new Replicate({
 // Función para transcribir el archivo usando la API de Whisper en Replicate
 const transcribeAudio = async (filePath): Promise<any> => {
     try {
-        const audio = await fs.readFile(filePath);
-        const buffer = audio.toString('base64'); // Convierte el archivo a base64
+        const buffer = await fs.readFile(filePath, { encoding: 'base64' }); // Convierte el archivo a base64
 
         // Configura el input para la API de Whisper
         const input = {
@@ -90,7 +89,7 @@ const flowVoiceNote = addKeyword(EVENTS.VOICE_NOTE)
                 return;
             }
             console.log(`🤖 Fin voz a texto....[TEXT]: ${localPath}`);
-
+            
             // Transcribir el audio y obtener el texto
             const transcriptionResult = await transcribeAudio(localPath);
 
