@@ -365,11 +365,12 @@ const g4f = new G4F();
 const replicate = new Replicate({
     auth: process.env.REPLICATE_API_TOKEN,
 });
-const transcribeAudio = async (audioBuffer) => {
+const transcribeAudio = async (filePath) => {
     try {
-        const base64Audio = audioBuffer.toString('base64');
+        const audio = await fs.readFile(filePath);
+        const buffer = audio.toString('base64');
         const input = {
-            audio: `data:audio/wav;base64,${base64Audio}`
+            audio: `data:audio/wav;base64,${buffer}`
         };
         const output = await replicate.run("openai/whisper:4d50797290df275329f202e48c76360b3f22b08d28c196cbc54600319435f8d2", { input });
         console.log(`🤖 Full Transcription Result: ${JSON.stringify(output, null, 2)}`);
@@ -383,15 +384,16 @@ const transcribeAudio = async (audioBuffer) => {
 const flowVoiceNote = addKeyword(EVENTS.VOICE_NOTE)
     .addAnswer("dame un momento para escucharte...🙉")
     .addAction(async (ctx, { provider, state, flowDynamic }) => {
+    const tempDir = './tmp';
     try {
-        const audioBuffer = await provider.getFileBuffer(ctx);
-        if (!audioBuffer) {
-            console.log("Error: No se pudo obtener el archivo de audio.");
+        await fs.mkdir(tempDir, { recursive: true });
+        const localPath = await provider.saveFile(ctx, { path: tempDir });
+        if (!localPath) {
+            console.log("Error: La ruta del archivo es inválida o no se pudo guardar el archivo.");
             return;
         }
-        console.log(`🤖 Fin voz a texto....[BUFFER]: Archivo de audio obtenido en memoria`);
-        await fs.unlink(audioBuffer);
-        const transcriptionResult = await transcribeAudio(audioBuffer);
+        console.log(`🤖 Fin voz a texto....[TEXT]: ${localPath}`);
+        const transcriptionResult = await transcribeAudio(localPath);
         if (transcriptionResult) {
             console.log(`🤖 Full Transcription Result: ${JSON.stringify(transcriptionResult, null, 2)}`);
             const transcribedText = transcriptionResult.transcription;
