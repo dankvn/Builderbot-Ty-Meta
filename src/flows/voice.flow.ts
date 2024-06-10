@@ -5,7 +5,6 @@ import { generateTimer } from "../utils/generateTimer";
 import { getHistoryParse, handleHistory } from "../utils/handleHistory";
 import { getFullCurrentDate } from "src/utils/currentDate";
 import { pdfQuery } from "src/services/pdf";
-import axios from 'axios';
 import { G4F } from "g4f";
 
 
@@ -52,14 +51,14 @@ const replicate = new Replicate({
 });
 
 // Función para transcribir el archivo usando la API de Whisper en Replicate
-const transcribeAudio = async (audioBuffer): Promise<any> => {
+const transcribeAudio = async (filePath): Promise<any> => {
     try {
-        
-        const base64Audio = audioBuffer.toString('base64'); // Convierte el archivo a base64
+        const audio = await fs.readFile(filePath);
+        const buffer = audio.toString('base64'); // Convierte el archivo a base64
 
         // Configura el input para la API de Whisper
         const input = {
-            audio: `data:audio/wav;base64,${base64Audio}`
+            audio: `data:audio/wav;base64,${buffer}`
         };
 
         // Llama a la API de Replicate para transcribir el audio
@@ -79,22 +78,21 @@ const transcribeAudio = async (audioBuffer): Promise<any> => {
 const flowVoiceNote = addKeyword(EVENTS.VOICE_NOTE)
     .addAnswer("dame un momento para escucharte...🙉")
     .addAction(async (ctx, { provider, state, flowDynamic }) => {
+        const tempDir = './tmp';
         try {
-            // Obtén el archivo en memoria en lugar de guardarlo en el sistema de archivos
-            const audioBuffer = await provider.getFileBuffer(ctx);
+            // Crear directorio temporal si no existe
+            await fs.mkdir(tempDir, { recursive: true });
 
-            if (!audioBuffer) {
-                console.log("Error: No se pudo obtener el archivo de audio.");
+            // Guardar el archivo en el directorio temporal
+            const localPath = await provider.saveFile(ctx, { path: tempDir });
+            if (!localPath) {
+                console.log("Error: La ruta del archivo es inválida o no se pudo guardar el archivo.");
                 return;
             }
-            console.log(`🤖 Fin voz a texto....[BUFFER]: Archivo de audio obtenido en memoria`);
+            console.log(`🤖 Fin voz a texto....[TEXT]: ${localPath}`);
 
-            
-            // Elimina el archivo después de leerlo
-            await fs.unlink(audioBuffer);
-            
-            // Transcribe el audio y obtén el texto
-            const transcriptionResult = await transcribeAudio(audioBuffer,);
+            // Transcribir el audio y obtener el texto
+            const transcriptionResult = await transcribeAudio(localPath);
 
             if (transcriptionResult) {
                 console.log(`🤖 Full Transcription Result: ${JSON.stringify(transcriptionResult, null, 2)}`);
@@ -137,7 +135,8 @@ const flowVoiceNote = addKeyword(EVENTS.VOICE_NOTE)
             }
         } catch (err) {
             console.log(`[ERROR]:`, err);
-        }
+        } 
     });
+
 
 export { flowVoiceNote };
