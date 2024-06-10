@@ -80,19 +80,18 @@ const flowVoiceNote = addKeyword(EVENTS.VOICE_NOTE)
     .addAnswer("dame un momento para escucharte...🙉")
     .addAction(async (ctx, { provider, state, flowDynamic }) => {
         try {
-            // Guarda el archivo localmente
-            const localPath = await provider.saveFile(ctx, { path: "./tmp" });
-            if (!localPath) {
-                console.log("Error: La ruta del archivo es inválida o no se pudo guardar el archivo.");
+            // Obtén el archivo en memoria en lugar de guardarlo en el sistema de archivos
+            const audioBuffer = await provider.getFileBuffer(ctx);
+
+            if (!audioBuffer) {
+                console.log("Error: No se pudo obtener el archivo de audio.");
                 return;
             }
-            console.log(`📝 Fin voz a texto....[TEXT]: ${localPath}`);
+            console.log(`🤖 Fin voz a texto....[BUFFER]: Archivo de audio obtenido en memoria`);
 
-            // Lee el archivo en memoria
-            const audioBuffer = await fs.readFile(localPath);
             
             // Elimina el archivo después de leerlo
-            await fs.unlink(localPath);
+            await fs.unlink(audioBuffer);
             
             // Transcribe el audio y obtén el texto
             const transcriptionResult = await transcribeAudio(audioBuffer,);
