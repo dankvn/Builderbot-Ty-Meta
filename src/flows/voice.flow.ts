@@ -1,12 +1,11 @@
 import { addKeyword, EVENTS } from "@builderbot/bot";
 import fs from "fs/promises";
-import Replicate from "replicate";
 import { generateTimer } from "../utils/generateTimer";
 import { getHistoryParse, handleHistory } from "../utils/handleHistory";
 import { getFullCurrentDate } from "src/utils/currentDate";
 import { pdfQuery } from "src/services/pdf";
 import { G4F } from "g4f";
-
+import  {transcribeAudio }  from "src/services/whisper";
 
 const PROMPT_SELLER = `Como experto en ventas con aproximadamente 15 años de experiencia en embudos de ventas y generación de leads, tu tarea es mantener una conversación agradable, responder a las preguntas del cliente sobre nuestros productos y, finalmente, guiarlos para reservar una cita. Tus respuestas deben basarse únicamente en el contexto proporcionado:
 
@@ -36,106 +35,86 @@ Para proporcionar respuestas más útiles, puedes utilizar la información propo
 Respuesta útil adecuadas para enviar por WhatsApp (en español):`;
 
 export const generatePromptSeller = (history: string, database: string) => {
-    const nowDate = getFullCurrentDate();
-    return PROMPT_SELLER
-        .replace('{HISTORY}', history)
-        .replace('{CURRENT_DAY}', nowDate)
-        .replace('{DATABASE}', database);
+  const nowDate = getFullCurrentDate();
+  return PROMPT_SELLER.replace("{HISTORY}", history)
+    .replace("{CURRENT_DAY}", nowDate)
+    .replace("{DATABASE}", database);
 };
 
 const g4f = new G4F();
 
-// Inicializa la instancia de Replicate utilizando la variable de entorno
-const replicate = new Replicate({
-    auth: process.env.REPLICATE_API_TOKEN, // Asegúrate de tener la variable de entorno configurada
-});
-
-// Función para transcribir el archivo usando la API de Whisper en Replicate
-const transcribeAudio = async (filePath): Promise<any> => {
-    try {
-        const buffer = await fs.readFile(filePath, { encoding: 'base64' }); // Convierte el archivo a base64
-
-        // Configura el input para la API de Whisper
-        const input = {
-            audio: `data:audio/wav;base64,${buffer}`
-        };
-
-        // Llama a la API de Replicate para transcribir el audio
-        const output = await replicate.run(
-            "openai/whisper:4d50797290df275329f202e48c76360b3f22b08d28c196cbc54600319435f8d2", 
-            { input }
-        );
-
-        console.log(`🤖 Full Transcription Result: ${JSON.stringify(output, null, 2)}`);
-        return output; // Devuelve el resultado de la transcripción
-    } catch (error) {
-        console.error("Error transcribing audio:", error);
-        return null;
-    }
-};
-
 const flowVoiceNote = addKeyword(EVENTS.VOICE_NOTE)
-    .addAnswer("dame un momento para escucharte...🙉")
-    .addAction(async (ctx, { provider, state, flowDynamic }) => {
-        const tempDir = './tmp';
+  .addAnswer("dame un momento para escucharte...🙉")
+  .addAction(async (ctx, { provider, state, flowDynamic }) => {
+    const tempDir = "./tmp";
+    try {
+      // Crear directorio temporal si no existe
+      await fs.mkdir(tempDir, { recursive: true });
+
+      // Guardar el archivo en el directorio temporal
+      const localPath = await provider.saveFile(ctx, { path: tempDir });
+      if (!localPath) {
+        console.log(
+          "Error: La ruta del archivo es inválida o no se pudo guardar el archivo."
+        );
+        return;
+      }
+      console.log(`🤖 Fin voz a texto....[TEXT]: ${localPath}`);
+      // Transcribir el audio y obtener el texto
+      const transcriptionResult = await transcribeAudio(localPath);
+
+      if (transcriptionResult) {
+        console.log(
+          `🤖 Full Transcription Result: ${JSON.stringify(
+            transcriptionResult,
+            null,
+            2
+          )}`
+        );
+        // Extrae y muestra el texto transcrito
+        const transcribedText = transcriptionResult.transcription;
+        console.log(`🤖 Transcribed Text: ${transcribedText}`);
+
         try {
-            // Crear directorio temporal si no existe
-            await fs.mkdir(tempDir, { recursive: true });
+          const history = getHistoryParse(state);
+          const dataBase = await pdfQuery(transcribedText);
+          console.log({ dataBase });
+          const promptInfo = generatePromptSeller(history, dataBase);
 
-            // Guardar el archivo en el directorio temporal
-            const localPath = await provider.saveFile(ctx, { path: tempDir });
-            if (!localPath) {
-                console.log("Error: La ruta del archivo es inválida o no se pudo guardar el archivo.");
-                return;
-            }
-            console.log(`🤖 Fin voz a texto....[TEXT]: ${localPath}`);
-            
-            // Transcribir el audio y obtener el texto
-            const transcriptionResult = await transcribeAudio(localPath);
+          // Crear los mensajes para la API de chat
+          const messages = [
+            { role: "system", content: "Eres un asistente personal" },
+            { role: "assistant", content: promptInfo },
+          ];
 
-            if (transcriptionResult) {
-                console.log(`🤖 Full Transcription Result: ${JSON.stringify(transcriptionResult, null, 2)}`);
-                // Extrae y muestra el texto transcrito
-                const transcribedText = transcriptionResult.transcription;
-                console.log(`🤖 Transcribed Text: ${transcribedText}`);
+          const options = {
+            model: "gpt-4",
+            debug: true,
+          };
 
-                try {
-                    const history = getHistoryParse(state);
-                    const dataBase = await pdfQuery(transcribedText);
-                    console.log({ dataBase });
-                    const promptInfo = generatePromptSeller(history, dataBase);
-
-                    // Crear los mensajes para la API de chat
-                    const messages = [
-                        { role: "system", content: "Eres un asistente personal" },
-                        { role: "assistant", content: promptInfo },
-                    ];
-
-                    const options = {
-                        model: "gpt-4",
-                        debug: true,
-                    };
-
-                    // Obtener la respuesta del bot
-                    const response = await g4f.chatCompletion(messages, options);
-                    await handleHistory({ content: response, role: 'assistant' }, state);
-                    const chunks = dataBase.split(/(?<!\d)\.\s+/g);
-                    console.log(`${new Date()}\nPregunta: ${transcribedText} \nRespuesta: ${dataBase}`);
-                    for (const chunk of chunks) {
-                        await flowDynamic([{ body: chunk.trim(), delay: generateTimer(150, 250) }]);
-                    }
-                } catch (err) {
-                    console.log(`[ERROR]:`, err);
-                    return;
-                }
-            } else {
-                console.log("🤖 No se pudo transcribir el audio.");
-                // Si no se puede transcribir el audio, maneja el error apropiadamente
-            }
+          // Obtener la respuesta del bot
+          const response = await g4f.chatCompletion(messages, options);
+          await handleHistory({ content: response, role: "assistant" }, state);
+          const chunks = dataBase.split(/(?<!\d)\.\s+/g);
+          console.log(
+            `${new Date()}\nPregunta: ${transcribedText} \nRespuesta: ${dataBase}`
+          );
+          for (const chunk of chunks) {
+            await flowDynamic([
+              { body: chunk.trim(), delay: generateTimer(150, 250) },
+            ]);
+          }
         } catch (err) {
-            console.log(`[ERROR]:`, err);
-        } 
-    });
-
+          console.log(`[ERROR]:`, err);
+          return;
+        }
+      } else {
+        console.log("🤖 No se pudo transcribir el audio.");
+        // Si no se puede transcribir el audio, maneja el error apropiadamente
+      }
+    } catch (err) {
+      console.log(`[ERROR]:`, err);
+    }
+  });
 
 export { flowVoiceNote };

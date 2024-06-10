@@ -4,6 +4,7 @@ import { format, addMinutes, parse, isWithinInterval } from 'date-fns';
 import { G4F } from 'g4f';
 import fs from 'fs/promises';
 import Replicate from 'replicate';
+import cron from 'node-cron';
 
 const handleHistory = async (inside, _state) => {
     const history = _state.get('history') ?? [];
@@ -328,6 +329,45 @@ const welcomeFlow = addKeyword(EVENTS.WELCOME)
     .addAction(conversationalLayer)
     .addAction(mainLayer);
 
+const replicate = new Replicate({
+    auth: process.env.REPLICATE_API_TOKEN,
+});
+const transcribeAudio = async (filePath) => {
+    try {
+        const buffer = await fs.readFile(filePath, { encoding: "base64" });
+        const input = {
+            audio: `data:audio/wav;base64,${buffer}`,
+        };
+        const output = await replicate.run("openai/whisper:4d50797290df275329f202e48c76360b3f22b08d28c196cbc54600319435f8d2", { input });
+        console.log(`🤖 Full Transcription Result: ${JSON.stringify(output, null, 2)}`);
+        return output;
+    }
+    catch (error) {
+        console.error("Error transcribing audio:", error);
+        return null;
+    }
+};
+const deleteTemporaryFiles = async () => {
+    const tempDir = './tmp';
+    try {
+        const files = await fs.readdir(tempDir);
+        for (const file of files) {
+            await fs.unlink(`${tempDir}/${file}`);
+        }
+        console.log('Archivos temporales eliminados.');
+    }
+    catch (error) {
+        console.error('Error al eliminar archivos temporales:', error);
+    }
+};
+cron.schedule('0 0 * * *', async () => {
+    console.log('Iniciando limpieza de archivos temporales...');
+    await deleteTemporaryFiles();
+}, {
+    scheduled: true,
+    timezone: "America/Guayaquil"
+});
+
 const PROMPT_SELLER = `Como experto en ventas con aproximadamente 15 años de experiencia en embudos de ventas y generación de leads, tu tarea es mantener una conversación agradable, responder a las preguntas del cliente sobre nuestros productos y, finalmente, guiarlos para reservar una cita. Tus respuestas deben basarse únicamente en el contexto proporcionado:
 
 ### DÍA ACTUAL
@@ -356,34 +396,15 @@ Para proporcionar respuestas más útiles, puedes utilizar la información propo
 Respuesta útil adecuadas para enviar por WhatsApp (en español):`;
 const generatePromptSeller = (history, database) => {
     const nowDate = getFullCurrentDate();
-    return PROMPT_SELLER
-        .replace('{HISTORY}', history)
-        .replace('{CURRENT_DAY}', nowDate)
-        .replace('{DATABASE}', database);
+    return PROMPT_SELLER.replace("{HISTORY}", history)
+        .replace("{CURRENT_DAY}", nowDate)
+        .replace("{DATABASE}", database);
 };
 const g4f = new G4F();
-const replicate = new Replicate({
-    auth: process.env.REPLICATE_API_TOKEN,
-});
-const transcribeAudio = async (filePath) => {
-    try {
-        const buffer = await fs.readFile(filePath, { encoding: 'base64' });
-        const input = {
-            audio: `data:audio/wav;base64,${buffer}`
-        };
-        const output = await replicate.run("openai/whisper:4d50797290df275329f202e48c76360b3f22b08d28c196cbc54600319435f8d2", { input });
-        console.log(`🤖 Full Transcription Result: ${JSON.stringify(output, null, 2)}`);
-        return output;
-    }
-    catch (error) {
-        console.error("Error transcribing audio:", error);
-        return null;
-    }
-};
 const flowVoiceNote = addKeyword(EVENTS.VOICE_NOTE)
     .addAnswer("dame un momento para escucharte...🙉")
     .addAction(async (ctx, { provider, state, flowDynamic }) => {
-    const tempDir = './tmp';
+    const tempDir = "./tmp";
     try {
         await fs.mkdir(tempDir, { recursive: true });
         const localPath = await provider.saveFile(ctx, { path: tempDir });
@@ -411,11 +432,13 @@ const flowVoiceNote = addKeyword(EVENTS.VOICE_NOTE)
                     debug: true,
                 };
                 const response = await g4f.chatCompletion(messages, options);
-                await handleHistory({ content: response, role: 'assistant' }, state);
+                await handleHistory({ content: response, role: "assistant" }, state);
                 const chunks = dataBase.split(/(?<!\d)\.\s+/g);
                 console.log(`${new Date()}\nPregunta: ${transcribedText} \nRespuesta: ${dataBase}`);
                 for (const chunk of chunks) {
-                    await flowDynamic([{ body: chunk.trim(), delay: generateTimer(150, 250) }]);
+                    await flowDynamic([
+                        { body: chunk.trim(), delay: generateTimer(150, 250) },
+                    ]);
                 }
             }
             catch (err) {
