@@ -209,13 +209,15 @@ const g4f$2 = new G4F();
 const PROMPT_FILTER_DATE = `
 ### Contexto
 Eres un asistente de inteligencia artificial. Tu propósito es determinar la fecha y hora que el cliente quiere, en el formato yyyy/MM/dd HH:mm:ss.
+Evita agendar los domingos y fuera del horario 10:00 a 19:00.
 
 ### Fecha y Hora Actual:
 {CURRENT_DAY}
 
 ### Registro de Conversación:
 {HISTORY}
-### INTRUCCIONES
+
+### INSTRUCIONES
 - NO Agendar en el siguiente horario de Lunes a Sabado.
 - NO Agendar en horario de almuezo 13:00 a 14:00.
 
