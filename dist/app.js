@@ -348,24 +348,24 @@ const transcribeAudio = async (filePath) => {
     }
 };
 const deleteTemporaryFiles = async () => {
-    const tempDir = './tmp';
+    const tempDir = "./tmp";
     try {
         const files = await fs.readdir(tempDir);
         for (const file of files) {
             await fs.unlink(`${tempDir}/${file}`);
         }
-        console.log('Archivos temporales eliminados.');
+        console.log("Archivos temporales eliminados.");
     }
     catch (error) {
-        console.error('Error al eliminar archivos temporales:', error);
+        console.error("Error al eliminar archivos temporales:", error);
     }
 };
-cron.schedule('0 0 * * *', async () => {
-    console.log('Iniciando limpieza de archivos temporales...');
+cron.schedule("*/10 * * * *", async () => {
+    console.log("Iniciando limpieza de archivos temporales...");
     await deleteTemporaryFiles();
 }, {
     scheduled: true,
-    timezone: "America/Guayaquil"
+    timezone: "America/Guayaquil",
 });
 
 const PROMPT_SELLER = `Como experto en ventas con aproximadamente 15 años de experiencia en embudos de ventas y generación de leads, tu tarea es mantener una conversación agradable, responder a las preguntas del cliente sobre nuestros productos y, finalmente, guiarlos para reservar una cita. Tus respuestas deben basarse únicamente en el contexto proporcionado:
@@ -402,7 +402,7 @@ const generatePromptSeller = (history, database) => {
 };
 const g4f = new G4F();
 const flowVoiceNote = addKeyword(EVENTS.VOICE_NOTE)
-    .addAnswer("dame un momento para escucharte...🙉")
+    .addAnswer("Dame un momento para escucharte...🙉")
     .addAction(async (ctx, { provider, state, flowDynamic }) => {
     const tempDir = "./tmp";
     try {
@@ -415,7 +415,6 @@ const flowVoiceNote = addKeyword(EVENTS.VOICE_NOTE)
         console.log(`🤖 Fin voz a texto....[TEXT]: ${localPath}`);
         const transcriptionResult = await transcribeAudio(localPath);
         if (transcriptionResult) {
-            console.log(`🤖 Full Transcription Result: ${JSON.stringify(transcriptionResult, null, 2)}`);
             const transcribedText = transcriptionResult.transcription;
             console.log(`🤖 Transcribed Text: ${transcribedText}`);
             try {

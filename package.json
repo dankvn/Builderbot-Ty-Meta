@@ -24,6 +24,7 @@
     "replicate": "^0.30.1"
   },
   "devDependencies": {
+    "@gradio/client": "^1.1.1",
     "@types/node": "^20.14.2",
     "@typescript-eslint/eslint-plugin": "^7.2.0",
     "@typescript-eslint/parser": "^7.4.0",

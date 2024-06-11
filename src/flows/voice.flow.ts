@@ -5,7 +5,7 @@ import { getHistoryParse, handleHistory } from "../utils/handleHistory";
 import { getFullCurrentDate } from "src/utils/currentDate";
 import { pdfQuery } from "src/services/pdf";
 import { G4F } from "g4f";
-import  {transcribeAudio }  from "src/services/whisper";
+import { transcribeAudio } from "src/services/whiper";
 
 const PROMPT_SELLER = `Como experto en ventas con aproximadamente 15 años de experiencia en embudos de ventas y generación de leads, tu tarea es mantener una conversación agradable, responder a las preguntas del cliente sobre nuestros productos y, finalmente, guiarlos para reservar una cita. Tus respuestas deben basarse únicamente en el contexto proporcionado:
 
@@ -44,7 +44,7 @@ export const generatePromptSeller = (history: string, database: string) => {
 const g4f = new G4F();
 
 const flowVoiceNote = addKeyword(EVENTS.VOICE_NOTE)
-  .addAnswer("dame un momento para escucharte...🙉")
+  .addAnswer("Dame un momento para escucharte...🙉")
   .addAction(async (ctx, { provider, state, flowDynamic }) => {
     const tempDir = "./tmp";
     try {
@@ -60,17 +60,11 @@ const flowVoiceNote = addKeyword(EVENTS.VOICE_NOTE)
         return;
       }
       console.log(`🤖 Fin voz a texto....[TEXT]: ${localPath}`);
+
       // Transcribir el audio y obtener el texto
       const transcriptionResult = await transcribeAudio(localPath);
 
       if (transcriptionResult) {
-        console.log(
-          `🤖 Full Transcription Result: ${JSON.stringify(
-            transcriptionResult,
-            null,
-            2
-          )}`
-        );
         // Extrae y muestra el texto transcrito
         const transcribedText = transcriptionResult.transcription;
         console.log(`🤖 Transcribed Text: ${transcribedText}`);
