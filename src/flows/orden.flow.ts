@@ -42,17 +42,28 @@ const flowOrden = addKeyword("orden")
       // Datos adicionales que podrías querer enviar
       const nombre = ctx.pushName;
       const email = state.get("email");
-      const telefono = "593983279469"; // Puedes capturar esto también si es necesario
-      const total = 100; // Puedes calcular esto dinámicamente
-      const cliente_id = "666a5aebb0caadd7a343e938"; // Cliente ID, puede venir del estado o de otro lado
+      const telefono = ctx.from; // Puedes capturar esto también si es necesario
+      const estado = "pendiente";
+      const productos = [
+        {
+          "nombre": "pizza familiar",
+          "cantidad": 2,
+          "precio_unitario": 10.0
+        },
+        {
+          "nombre": "ensalada de lechugas",
+          "cantidad": 1,
+          "precio_unitario": 20.0
+        }
+      ]
 
       // Datos para enviar a la API
       const pedidoData = {
         nombre,
         email,
         telefono,
-        total,
-        cliente_id,
+        estado,
+        productos,
       };
 
       try {
@@ -92,7 +103,7 @@ const flowOrden = addKeyword("orden")
         console.log("Pdf generado:", tempFilePath);
         // Enviar el archivo PDF adjunto
         await flowDynamic([{ body:"Tu pedido ha sido creado.🍜",media:tempFilePath }]);
-
+        
 
         // Eliminar el archivo temporal después de enviarlo
         fs.unlinkSync(tempFilePath);
