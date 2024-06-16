@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import Replicate from "replicate";
-import cron from "node-cron";
+//import cron from "node-cron";
 
 // Inicializa la instancia de Replicate utilizando la variable de entorno
 const replicate = new Replicate({
@@ -49,15 +49,15 @@ const deleteTemporaryFiles = async () => {
 };
 
 // Programar una tarea que se ejecute cada 10 minutos
-cron.schedule(
-  "*/10 * * * *",
-  async () => {
-    console.log("Iniciando limpieza de archivos temporales...");
-    await deleteTemporaryFiles();
-  },
-  {
-    scheduled: true,
-    timezone: "America/Guayaquil", // Ajusta la zona horaria si es necesario
-  }
-);
+//cron.schedule(
+ // "*/10 * * * *",
+ // async () => {
+ //   console.log("Iniciando limpieza de archivos temporales...");
+  //  await deleteTemporaryFiles();
+ // },
+ // {
+ //   scheduled: true,
+ //   timezone: "America/Guayaquil", // Ajusta la zona horaria si es necesario
+//  }
+//);
 export { transcribeAudio };
