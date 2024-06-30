@@ -33,7 +33,6 @@ Para proporcionar respuestas más útiles, puedes utilizar la información propo
 - Captura cada producto que el cliente mencione mas la cantidad.
 - Responde con este formato :
  {Nombre del producto}:{$precio_unitario}*{cantidad}.
- {Nombre del producto}:{$precio_unitario}*{cantidad}.
   Resultado Final:
 Total por  {nombre del producto}: $Total_por_productos. 
 Total por  {nombre del producto}: $Total_por_productos.
