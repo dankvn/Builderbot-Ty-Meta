@@ -2,9 +2,12 @@ import { addKeyword, EVENTS, createFlow, createProvider, MemoryDB, createBot } f
 import { MetaProvider } from '@builderbot/provider-meta';
 import { format, addMinutes, parse, isWithinInterval } from 'date-fns';
 import { G4F } from 'g4f';
-import fs from 'fs/promises';
+import axios from 'axios';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import fs$1 from 'fs/promises';
 import Replicate from 'replicate';
-import cron from 'node-cron';
 
 const handleHistory = async (inside, _state) => {
     const history = _state.get('history') ?? [];
@@ -44,42 +47,19 @@ const getFullCurrentDate = () => {
     ].join(' ');
 };
 
-const MAKE_ADD_TO_CALENDAR = process.env.MAKE_ADD_TO_CALENDAR ?? '';
-const MAKE_GET_FROM_CALENDAR = process.env.MAKE_GET_FROM_CALENDAR ?? '';
-const CHATPDF_API = process.env.CHATPDF_API ?? '';
-const CHATPDF_KEY = process.env.CHATPDF_KEY ?? '';
-const CHATPDF_SRC = process.env.CHATPDF_SRC ?? '';
-process.env.DURATION_MEET ?? '';
-
-const pdfQuery = async (query) => {
+const getItem = async () => {
     try {
-        const dataApi = await fetch(CHATPDF_API, {
-            method: 'POST',
-            headers: {
-                'x-api-key': CHATPDF_KEY,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                "sourceId": CHATPDF_SRC,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": query
-                    }
-                ]
-            })
-        });
-        const response = await dataApi.json();
-        return response.content;
+        const response = await axios.get('http://localhost:80/api/productos/');
+        return response.data;
     }
-    catch (e) {
-        console.log(e);
-        return 'ERROR';
+    catch (error) {
+        console.error('Error al obtener productos:', error);
+        throw error;
     }
 };
 
-const g4f$3 = new G4F();
-const PROMPT_SELLER$1 = `Como experto en ventas con aproximadamente 15 años de experiencia en embudos de ventas y generación de leads, tu tarea es mantener una conversación agradable, responder a las preguntas del cliente sobre nuestros productos y, finalmente, guiarlos para reservar una cita. Tus respuestas deben basarse únicamente en el contexto proporcionado:
+const g4f$4 = new G4F();
+const PROMPT_SELLER$2 = `Como experto en ventas con aproximadamente 15 años de experiencia en embudos de ventas y generación de leads, tu tarea es mantener una conversación agradable, responder a las preguntas del cliente sobre nuestros productos y, finalmente, guiarlos a realizar una orden. Tus respuestas deben basarse únicamente en el contexto proporcionado:
 
 ### DÍA ACTUAL
 {CURRENT_DAY}
@@ -105,9 +85,9 @@ Para proporcionar respuestas más útiles, puedes utilizar la información propo
 - Respuestas cortas ideales para enviar por whatsapp con emojis.
 
 Respuesta útil adecuadas para enviar por WhatsApp (en español):`;
-const generatePromptSeller$1 = (history, database) => {
+const generatePromptSeller$2 = (history, database) => {
     const nowDate = getFullCurrentDate();
-    return PROMPT_SELLER$1
+    return PROMPT_SELLER$2
         .replace('{HISTORY}', history)
         .replace('{CURRENT_DAY}', nowDate)
         .replace('{DATABASE}', database);
@@ -118,9 +98,10 @@ const flowSeller = addKeyword(EVENTS.ACTION)
     try {
         const text = ctx.body;
         const history = getHistoryParse(state);
-        const dataBase = await pdfQuery(ctx.body);
+        const dataBase = await getItem();
+        const databaseString = JSON.stringify(dataBase);
         console.log({ dataBase });
-        const promptInfo = generatePromptSeller$1(history, dataBase);
+        const promptInfo = generatePromptSeller$2(history, databaseString);
         const messages = [
             { role: "system", content: "Eres un asistente personal" },
             { role: "assistant", content: promptInfo },
@@ -129,7 +110,7 @@ const flowSeller = addKeyword(EVENTS.ACTION)
             model: "gpt-4",
             debug: true,
         };
-        const response = await g4f$3.chatCompletion(messages, options);
+        const response = await g4f$4.chatCompletion(messages, options);
         console.log(`${new Date()}\nPregunta: ${text} \nRespuesta: ${response}`);
         await handleHistory({ content: dataBase, role: 'assistant' }, state);
         const chunks = response.split(/(?<!\d)\.\s+/g);
@@ -142,6 +123,13 @@ const flowSeller = addKeyword(EVENTS.ACTION)
         return;
     }
 });
+
+const MAKE_ADD_TO_CALENDAR = process.env.MAKE_ADD_TO_CALENDAR ?? '';
+const MAKE_GET_FROM_CALENDAR = process.env.MAKE_GET_FROM_CALENDAR ?? '';
+const CHATPDF_API = process.env.CHATPDF_API ?? '';
+const CHATPDF_KEY = process.env.CHATPDF_KEY ?? '';
+const CHATPDF_SRC = process.env.CHATPDF_SRC ?? '';
+process.env.DURATION_MEET ?? '';
 
 const getCurrentCalendar = async () => {
     const dataCalendarApi = await fetch(MAKE_GET_FROM_CALENDAR);
@@ -205,11 +193,11 @@ const flowConfirm = addKeyword(EVENTS.ACTION)
 });
 
 const DURATION_MEET = process.env.DURATION_MEET ?? 45;
-const g4f$2 = new G4F();
+const g4f$3 = new G4F();
 const PROMPT_FILTER_DATE = `
 ### Contexto
 Eres un asistente de inteligencia artificial. Tu propósito es determinar la fecha y hora que el cliente quiere, en el formato yyyy/MM/dd HH:mm:ss.
-Evita agendar los domingos y fuera del horario 10:00 a 19:00.
+
 
 ### Fecha y Hora Actual:
 {CURRENT_DAY}
@@ -218,7 +206,7 @@ Evita agendar los domingos y fuera del horario 10:00 a 19:00.
 {HISTORY}
 
 ### INSTRUCIONES
-- NO Agendar en el siguiente horario de Lunes a Sabado.
+-Evita agendar los domingos y fuera del horario 10:00 a 19:00.
 - NO Agendar en horario de almuezo 13:00 a 14:00.
 
 
@@ -250,7 +238,7 @@ const flowSchedule = addKeyword(EVENTS.ACTION)
         model: "gpt-4",
         debug: true,
     };
-    const response = await g4f$2.chatCompletion(messages, options);
+    const response = await g4f$3.chatCompletion(messages, options);
     console.log(`${new Date()}\nRespuesta de G4F: ${response}`);
     const date = response.trim();
     const desiredDate = parse(date, "yyyy/MM/dd HH:mm:ss", new Date());
@@ -281,14 +269,161 @@ const flowSchedule = addKeyword(EVENTS.ACTION)
     await state.update({ desiredDate: null });
 });
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const g4f$2 = new G4F();
+const PROMPT_SELLER$1 = `
+### Contexto
+Eres un asistente de inteligencia artificial. Tu propósito es capturar los productos que el cliente mencione.
+
+
+### Registro de Conversación:
+{HISTORY}
+
+### BASE DE DATOS
+{DATABASE}
+Para proporcionar respuestas más útiles, puedes utilizar la información proporcionada en la base de datos. El contexto es la única información que tienes. Ignora cualquier cosa que no esté relacionada con el contexto.
+
+### INSTRUCIONES
+- Captura cada producto que el cliente mencione mas la cantidad.
+- Responde con este formato :
+ {Nombre del producto}:{$precio_unitario}*{cantidad}.
+ {Nombre del producto}:{$precio_unitario}*{cantidad}.
+  Resultado Final:
+Total por  {nombre del producto}: $Total_por_productos. 
+Total por  {nombre del producto}: $Total_por_productos.
+Total por todos los productos: Suma total.
+
+Asistente: "{respuesta en formato (nombre del producto) ($precio_unitario)}"
+`;
+const generatePromptSeller$1 = (history, database) => {
+    const nowDate = getFullCurrentDate();
+    return PROMPT_SELLER$1.replace("{HISTORY}", history)
+        .replace("{CURRENT_DAY}", nowDate)
+        .replace('{DATABASE}', database);
+};
+const parseProducts = (productsString) => {
+    const productsArray = productsString.split("\n").filter(Boolean);
+    const parsedProducts = [];
+    for (let i = 0; i < productsArray.length; i++) {
+        const line = productsArray[i];
+        if (line.includes(':') && line.includes('*')) {
+            const [namePart, rest] = line.split(':');
+            const [pricePart, quantityPart] = rest.split('*');
+            const name = namePart.trim();
+            const price = parseFloat(pricePart.replace('$', '').trim());
+            const quantity = parseInt(quantityPart.trim(), 10);
+            parsedProducts.push({
+                nombre: name,
+                cantidad: quantity,
+                precio_unitario: price,
+            });
+        }
+    }
+    return parsedProducts;
+};
+const flowOrden = addKeyword(EVENTS.ACTION)
+    .addAnswer(`📝`)
+    .addAction(async (ctx, { state, flowDynamic, endFlow }) => {
+    await flowDynamic("Procesando tu orden ✍");
+    const history = getHistoryParse(state);
+    const database = await getItem();
+    const databaseString = JSON.stringify(database);
+    console.log({ database });
+    const promptFilter = generatePromptSeller$1(history, databaseString);
+    const text = ctx.body;
+    const messages = [
+        { role: "system", content: "Eres un experto en matematicas" },
+        { role: "assistant", content: promptFilter },
+        { role: "user", content: text },
+    ];
+    const options = {
+        model: "gpt-4",
+        debug: true,
+    };
+    const response = await g4f$2.chatCompletion(messages, options);
+    console.log(`${new Date()}\nRespuesta de G4F: ${response}`);
+    const product = response.trim();
+    if (!product) {
+        await flowDynamic("No se pudo capturar el producto. ¿Puede intentarlo de nuevo?");
+        return;
+    }
+    const parsedProduct = parseProducts(product);
+    const currentProducts = state.get('products') || [];
+    currentProducts.push(...parsedProduct);
+    await handleHistory({ content: `Lista de productos:${product}.`, role: "assistant" }, state);
+    await state.update({ products: currentProducts });
+    await flowDynamic(`Lista de productos:\n ${product}.\n ¿Desea agregar otro producto? (si/no)`);
+})
+    .addAction({ capture: true }, async ({ body }, { gotoFlow, flowDynamic, state }) => {
+    if (body.toLowerCase().includes("si"))
+        return gotoFlow(flowOrden);
+    const products = state.get('products').map(product => `${product.nombre} (Cantidad: ${product.cantidad}, Precio Unitario: $${product.precio_unitario})`).join(", ");
+    await flowDynamic(`Orden finalizada. Los productos ingresados son: ${products}\n Quieres *confirma* tu pedido`);
+})
+    .addAction({ capture: true }, async (ctx, { flowDynamic, state }) => {
+    await state.update({ name: ctx.body });
+    await flowDynamic("Dime tu email...");
+})
+    .addAction({ capture: true }, async (ctx, { state, fallBack }) => {
+    if (!ctx.body.includes("@")) {
+        return fallBack("Debes ingresar un correo correcto.");
+    }
+    await state.update({ email: ctx.body });
+})
+    .addAction(async (ctx, { state, flowDynamic }) => {
+    const myState = state.getMyState();
+    const nombre = ctx.pushName;
+    const email = myState.email;
+    const telefono = ctx.from;
+    const estado = "pendiente";
+    const productos = myState.products;
+    const pedidoData = {
+        nombre,
+        email,
+        telefono,
+        estado,
+        productos
+    };
+    try {
+        console.log("Pedido a enviar:", JSON.stringify(pedidoData, null, 2));
+        const response = await axios.post("http://localhost/api/pedidos", pedidoData, {
+            headers: {
+                "Content-Type": "application/json",
+            },
+        });
+        const fullPath = response.data.pdfPath;
+        const pdfPath = fullPath.split("\\").pop().split("/").pop();
+        const pdfUrl = `http://localhost/api/pdfs/${pdfPath}`;
+        console.log("Pedido creado:", JSON.stringify(response.data, null, 2));
+        console.log("URL del PDF:", pdfUrl);
+        const pdfResponse = await axios.get(pdfUrl, {
+            responseType: "arraybuffer",
+        });
+        const pdfBuffer = Buffer.from(pdfResponse.data, "binary");
+        const tempFilePath = path.join(__dirname, `${pdfPath}`);
+        fs.writeFileSync(tempFilePath, pdfBuffer);
+        await flowDynamic([
+            { body: "Tu pedido ha sido creado.🍜", media: tempFilePath },
+        ]);
+        fs.unlinkSync(tempFilePath);
+    }
+    catch (error) {
+        console.error("Error al crear el pedido:", error);
+        await flowDynamic("Hubo un error al crear tu pedido. Por favor, inténtalo de nuevo más tarde.");
+    }
+    clearHistory(state);
+});
+
 const g4f$1 = new G4F();
 const PROMPT_DISCRIMINATOR = `### Historial de Conversación (Vendedor/Cliente) ###
 {HISTORY}
 
 ### Intenciones del Usuario ###
 
-**HABLAR**: Selecciona esta acción si el cliente parece querer hacer una pregunta o necesita más información.
+**HABLAR**: Selecciona esta acción si el cliente parece querer hacer una pregunta o necesita más información de productos.
 **PROGRAMAR**: Selecciona esta acción si el cliente muestra intención de programar una cita.
+**COMPRAR**: Selecciona esta acción si el cliente muestra intención de comprar un producto.
 
 ### Instrucciones ###
 
@@ -325,18 +460,47 @@ var mainLayer = async (ctx, { state, gotoFlow }) => {
         return gotoFlow(flowSeller);
     if (response.includes('PROGRAMAR'))
         return gotoFlow(flowSchedule);
+    if (response.includes('COMPRAR'))
+        return gotoFlow(flowOrden);
 };
 
 const welcomeFlow = addKeyword(EVENTS.WELCOME)
     .addAction(conversationalLayer)
     .addAction(mainLayer);
 
+const pdfQuery = async (query) => {
+    try {
+        const dataApi = await fetch(CHATPDF_API, {
+            method: 'POST',
+            headers: {
+                'x-api-key': CHATPDF_KEY,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                "sourceId": CHATPDF_SRC,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": query
+                    }
+                ]
+            })
+        });
+        const response = await dataApi.json();
+        return response.content;
+    }
+    catch (e) {
+        console.log(e);
+        return 'ERROR';
+    }
+};
+
 const replicate = new Replicate({
     auth: process.env.REPLICATE_API_TOKEN,
 });
 const transcribeAudio = async (filePath) => {
     try {
-        const buffer = await fs.readFile(filePath, { encoding: "base64" });
+        const buffer = await fs$1.readFile(filePath, { encoding: "base64" });
         const input = {
             audio: `data:audio/wav;base64,${buffer}`,
         };
@@ -349,26 +513,6 @@ const transcribeAudio = async (filePath) => {
         return null;
     }
 };
-const deleteTemporaryFiles = async () => {
-    const tempDir = "./tmp";
-    try {
-        const files = await fs.readdir(tempDir);
-        for (const file of files) {
-            await fs.unlink(`${tempDir}/${file}`);
-        }
-        console.log("Archivos temporales eliminados.");
-    }
-    catch (error) {
-        console.error("Error al eliminar archivos temporales:", error);
-    }
-};
-cron.schedule("*/10 * * * *", async () => {
-    console.log("Iniciando limpieza de archivos temporales...");
-    await deleteTemporaryFiles();
-}, {
-    scheduled: true,
-    timezone: "America/Guayaquil",
-});
 
 const PROMPT_SELLER = `Como experto en ventas con aproximadamente 15 años de experiencia en embudos de ventas y generación de leads, tu tarea es mantener una conversación agradable, responder a las preguntas del cliente sobre nuestros productos y, finalmente, guiarlos para reservar una cita. Tus respuestas deben basarse únicamente en el contexto proporcionado:
 
@@ -408,7 +552,7 @@ const flowVoiceNote = addKeyword(EVENTS.VOICE_NOTE)
     .addAction(async (ctx, { provider, state, flowDynamic }) => {
     const tempDir = "./tmp";
     try {
-        await fs.mkdir(tempDir, { recursive: true });
+        await fs$1.mkdir(tempDir, { recursive: true });
         const localPath = await provider.saveFile(ctx, { path: tempDir });
         if (!localPath) {
             console.log("Error: La ruta del archivo es inválida o no se pudo guardar el archivo.");
@@ -456,7 +600,7 @@ const flowVoiceNote = addKeyword(EVENTS.VOICE_NOTE)
     }
 });
 
-var flow = createFlow([welcomeFlow, flowSeller, flowSchedule, flowConfirm, flowVoiceNote]);
+var flow = createFlow([welcomeFlow, flowSeller, flowSchedule, flowConfirm, flowVoiceNote, flowOrden]);
 
 const PORT = process.env.PORT ?? 3009;
 const main = async () => {
