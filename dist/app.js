@@ -288,7 +288,6 @@ Para proporcionar respuestas más útiles, puedes utilizar la información propo
 - Captura cada producto que el cliente mencione mas la cantidad.
 - Responde con este formato :
  {Nombre del producto}:{$precio_unitario}*{cantidad}.
- {Nombre del producto}:{$precio_unitario}*{cantidad}.
   Resultado Final:
 Total por  {nombre del producto}: $Total_por_productos. 
 Total por  {nombre del producto}: $Total_por_productos.
@@ -394,7 +393,7 @@ const flowOrden = addKeyword(EVENTS.ACTION)
         });
         const fullPath = response.data.pdfPath;
         const pdfPath = fullPath.split("\\").pop().split("/").pop();
-        const pdfUrl = `https://api-catalogo-pdf.onrender.com/pdfs/${pdfPath}`;
+        const pdfUrl = `https://api-catalogo-pdf.onrender.com/api/pdfs/${pdfPath}`;
         console.log("Pedido creado:", JSON.stringify(response.data, null, 2));
         console.log("URL del PDF:", pdfUrl);
         const pdfResponse = await axios.get(pdfUrl, {
