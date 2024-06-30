@@ -49,7 +49,7 @@ const getFullCurrentDate = () => {
 
 const getItem = async () => {
     try {
-        const response = await axios.get('http://localhost:80/api/productos/');
+        const response = await axios.get('https://api-catalogo-pdf.onrender.com/api/productos/');
         return response.data;
     }
     catch (error) {
@@ -387,14 +387,14 @@ const flowOrden = addKeyword(EVENTS.ACTION)
     };
     try {
         console.log("Pedido a enviar:", JSON.stringify(pedidoData, null, 2));
-        const response = await axios.post("http://localhost/api/pedidos", pedidoData, {
+        const response = await axios.post(" https://api-catalogo-pdf.onrender.com/api/pedidos", pedidoData, {
             headers: {
                 "Content-Type": "application/json",
             },
         });
         const fullPath = response.data.pdfPath;
         const pdfPath = fullPath.split("\\").pop().split("/").pop();
-        const pdfUrl = `http://localhost/api/pdfs/${pdfPath}`;
+        const pdfUrl = `https://api-catalogo-pdf.onrender.com/pdfs/${pdfPath}`;
         console.log("Pedido creado:", JSON.stringify(response.data, null, 2));
         console.log("URL del PDF:", pdfUrl);
         const pdfResponse = await axios.get(pdfUrl, {

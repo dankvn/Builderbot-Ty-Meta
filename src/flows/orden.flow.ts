@@ -165,7 +165,8 @@ const flowOrden = addKeyword(EVENTS.ACTION)
       try {
         console.log("Pedido a enviar:", JSON.stringify(pedidoData, null, 2)); // Agregado para verificar el formato del pedido
         const response = await axios.post(
-          "http://localhost/api/pedidos",
+          " https://api-catalogo-pdf.onrender.com/api/pedidos",
+          
           pedidoData,
           {
             headers: {
@@ -176,7 +177,7 @@ const flowOrden = addKeyword(EVENTS.ACTION)
 
         const fullPath = response.data.pdfPath;
         const pdfPath = fullPath.split("\\").pop().split("/").pop();
-        const pdfUrl = `http://localhost/api/pdfs/${pdfPath}`;
+        const pdfUrl = `https://api-catalogo-pdf.onrender.com/pdfs/${pdfPath}`;
         console.log("Pedido creado:", JSON.stringify(response.data, null, 2));
         console.log("URL del PDF:", pdfUrl);
 
