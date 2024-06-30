@@ -4,6 +4,7 @@ import { flowSeller } from "../flows/seller.flow"
 import { flowSchedule } from "../flows/schedule.flow"
 
 import { G4F } from "g4f";
+import { flowOrden } from "~/flows/orden.flow";
 
 const g4f = new G4F();
 
@@ -12,8 +13,9 @@ const PROMPT_DISCRIMINATOR = `### Historial de Conversación (Vendedor/Cliente) 
 
 ### Intenciones del Usuario ###
 
-**HABLAR**: Selecciona esta acción si el cliente parece querer hacer una pregunta o necesita más información.
+**HABLAR**: Selecciona esta acción si el cliente parece querer hacer una pregunta o necesita más información de productos.
 **PROGRAMAR**: Selecciona esta acción si el cliente muestra intención de programar una cita.
+**COMPRAR**: Selecciona esta acción si el cliente muestra intención de comprar un producto.
 
 ### Instrucciones ###
 
@@ -58,4 +60,5 @@ export default async (ctx: BotContext, { state, gotoFlow }: BotMethods) => {
 
     if (response.includes('HABLAR')) return gotoFlow(flowSeller)
     if (response.includes('PROGRAMAR')) return gotoFlow(flowSchedule)
+    if (response.includes('COMPRAR')) return gotoFlow(flowOrden)
 }

@@ -7,6 +7,7 @@ import { flowConfirm } from "./confirm.flow";
 import { addMinutes, isWithinInterval, format, parse, getDay } from "date-fns";
 import { G4F } from "g4f";
 
+
 const DURATION_MEET = process.env.DURATION_MEET ?? 45;
 
 const g4f = new G4F();
@@ -14,7 +15,7 @@ const g4f = new G4F();
 const PROMPT_FILTER_DATE = `
 ### Contexto
 Eres un asistente de inteligencia artificial. Tu propósito es determinar la fecha y hora que el cliente quiere, en el formato yyyy/MM/dd HH:mm:ss.
-Evita agendar los domingos y fuera del horario 10:00 a 19:00.
+
 
 ### Fecha y Hora Actual:
 {CURRENT_DAY}
@@ -23,7 +24,7 @@ Evita agendar los domingos y fuera del horario 10:00 a 19:00.
 {HISTORY}
 
 ### INSTRUCIONES
-- NO Agendar en el siguiente horario de Lunes a Sabado.
+-Evita agendar los domingos y fuera del horario 10:00 a 19:00.
 - NO Agendar en horario de almuezo 13:00 a 14:00.
 
 

@@ -4,11 +4,11 @@ import { getHistoryParse, handleHistory } from "../utils/handleHistory";
 import { getFullCurrentDate } from "src/utils/currentDate";
 import { pdfQuery } from "src/services/pdf";
 import { G4F } from "g4f";
-
+import { getItem } from "src/services/api/items.service";
 
 const g4f = new G4F();
 
-const PROMPT_SELLER = `Como experto en ventas con aproximadamente 15 años de experiencia en embudos de ventas y generación de leads, tu tarea es mantener una conversación agradable, responder a las preguntas del cliente sobre nuestros productos y, finalmente, guiarlos para reservar una cita. Tus respuestas deben basarse únicamente en el contexto proporcionado:
+const PROMPT_SELLER = `Como experto en ventas con aproximadamente 15 años de experiencia en embudos de ventas y generación de leads, tu tarea es mantener una conversación agradable, responder a las preguntas del cliente sobre nuestros productos y, finalmente, guiarlos a realizar una orden. Tus respuestas deben basarse únicamente en el contexto proporcionado:
 
 ### DÍA ACTUAL
 {CURRENT_DAY}
@@ -50,10 +50,10 @@ const flowSeller = addKeyword(EVENTS.ACTION)
         try {
             const text = ctx.body;
             const history = getHistoryParse(state)
-
-            const dataBase = await pdfQuery(ctx.body)
+            const dataBase = await getItem()
+            const databaseString = JSON.stringify(dataBase); 
             console.log({dataBase})
-            const promptInfo = generatePromptSeller(history, dataBase)
+            const promptInfo = generatePromptSeller(history, databaseString)
 
 
              // Crear los mensajes para la API de chat
