@@ -177,7 +177,7 @@ const flowOrden = addKeyword(EVENTS.ACTION)
 
         const fullPath = response.data.pdfPath;
         const pdfPath = fullPath.split("\\").pop().split("/").pop();
-        const pdfUrl = `https://api-catalogo-pdf.onrender.com/pdfs/${pdfPath}`;
+        const pdfUrl = `https://api-catalogo-pdf.onrender.com/api/pdfs/${pdfPath}`;
         console.log("Pedido creado:", JSON.stringify(response.data, null, 2));
         console.log("URL del PDF:", pdfUrl);
 
